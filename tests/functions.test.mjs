@@ -7,11 +7,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BlobsServer } from "@netlify/blobs/server";
 
-let server, directory, reviews, admin;
+let server, directory, reviews, admin, hit;
 const url = (path) => `https://jpe.example${path}`;
 const post = (path, body, headers = {}) =>
   new Request(url(path), { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
-const auth = { authorization: "Bearer secret-test" };
+const TOKEN = "secret-de-test-long";
+const auth = { authorization: `Bearer ${TOKEN}` };
 const valid = { rating: 5, comment: "Des échanges utiles avec les étudiants.", name: "Camille Durand", role: "pro" };
 
 before(async () => {
@@ -20,9 +21,10 @@ before(async () => {
   const { port } = await server.start();
   const context = { edgeURL: `http://localhost:${port}`, uncachedEdgeURL: `http://localhost:${port}`, siteID: "site-test", token: "local-token" };
   process.env.NETLIFY_BLOBS_CONTEXT = Buffer.from(JSON.stringify(context)).toString("base64");
-  process.env.ADMIN_TOKEN = "secret-test";
+  process.env.ADMIN_TOKEN = TOKEN;
   reviews = (await import("../netlify/functions/reviews.mjs")).default;
   admin = (await import("../netlify/functions/admin-reviews.mjs")).default;
+  hit = (await import("../netlify/functions/hit.mjs")).default;
 });
 
 after(async () => {
@@ -41,19 +43,23 @@ test("parcours complet : envoi, validation, publication", async () => {
   res = await reviews(post("/api/reviews", { comment: "sans note" }), { ip: "1.2.3.4" });
   assert.equal(res.status, 400);
 
-  res = await reviews(new Request(url("/api/reviews"), { method: "POST", body: "pas du json" }), { ip: "1.2.3.4" });
+  res = await reviews(new Request(url("/api/reviews"), { method: "POST", body: "pas du json", headers: { "content-type": "application/json" } }), { ip: "1.2.3.4" });
   assert.equal(res.status, 400);
 
-  assert.equal((await admin(new Request(url("/api/admin/reviews")))).status, 401);
-  assert.equal((await admin(new Request(url("/api/admin/reviews"), { headers: { authorization: "Bearer faux" } }))).status, 401);
+  // Un formulaire posté depuis un autre site (sans JSON) est refusé.
+  res = await reviews(new Request(url("/api/reviews"), { method: "POST", body: "rating=5&comment=spam+spam", headers: { "content-type": "application/x-www-form-urlencoded" } }), { ip: "1.2.3.4" });
+  assert.equal(res.status, 415);
 
-  res = await admin(new Request(url("/api/admin/reviews"), { headers: auth }));
+  assert.equal((await admin(new Request(url("/api/admin/reviews")), { ip: "5.5.5.5" })).status, 401);
+  assert.equal((await admin(new Request(url("/api/admin/reviews"), { headers: { authorization: "Bearer faux" } }), { ip: "5.5.5.5" })).status, 401);
+
+  res = await admin(new Request(url("/api/admin/reviews"), { headers: auth }), { ip: "7.7.7.7" });
   assert.equal(res.status, 200);
   const all = (await res.json()).reviews;
   assert.equal(all.length, 1);
   assert.equal(all[0].status, "pending");
 
-  res = await admin(post("/api/admin/reviews", { id: all[0].id, action: "approve" }, auth));
+  res = await admin(post("/api/admin/reviews", { id: all[0].id, action: "approve" }, auth), { ip: "7.7.7.7" });
   assert.equal(res.status, 200);
 
   res = await reviews(new Request(url("/api/reviews")), { ip: "9.9.9.9" });
@@ -62,7 +68,7 @@ test("parcours complet : envoi, validation, publication", async () => {
   assert.equal(pub.reviews[0].name, "Camille Durand");
   assert.deepEqual(pub.stats, { count: 1, avg: 5 });
 
-  res = await admin(post("/api/admin/reviews", { id: all[0].id, action: "delete" }, auth));
+  res = await admin(post("/api/admin/reviews", { id: all[0].id, action: "delete" }, auth), { ip: "7.7.7.7" });
   assert.equal(res.status, 200);
   assert.equal((await (await reviews(new Request(url("/api/reviews")), {})).json()).reviews.length, 0);
 });
@@ -70,10 +76,22 @@ test("parcours complet : envoi, validation, publication", async () => {
 test("sans ADMIN_TOKEN configuré, l'admin est fermé", async () => {
   const saved = process.env.ADMIN_TOKEN;
   delete process.env.ADMIN_TOKEN;
-  assert.equal((await admin(new Request(url("/api/admin/reviews"), { headers: auth }))).status, 503);
+  assert.equal((await admin(new Request(url("/api/admin/reviews"), { headers: auth }), { ip: "7.7.7.7" })).status, 503);
   process.env.ADMIN_TOKEN = saved;
 });
 
 test("méthode non prévue", async () => {
   assert.equal((await reviews(new Request(url("/api/reviews"), { method: "DELETE" }), {})).status, 405);
+});
+
+test("compteur de visites : /api/hit puis lecture côté admin", async () => {
+  assert.equal((await hit(post("/api/hit", { src: "qr" }), { ip: "8.8.8.1" })).status, 204);
+  assert.equal((await hit(post("/api/hit", { src: "linkedin" }), { ip: "8.8.8.2" })).status, 204);
+  assert.equal((await hit(new Request(url("/api/hit"), { method: "POST", body: "n'importe quoi" }), { ip: "8.8.8.3" })).status, 204);
+  assert.equal((await hit(new Request(url("/api/hit")), { ip: "8.8.8.4" })).status, 405);
+
+  const res = await admin(new Request(url("/api/admin/reviews"), { headers: auth }), { ip: "7.7.7.7" });
+  const { visits } = await res.json();
+  assert.equal(visits.total, 3);
+  assert.deepEqual(visits.bySource, { qr: 1, linkedin: 1, autre: 1 });
 });

@@ -1,8 +1,8 @@
 // Réservé à l'équipe. Demande l'en-tête "Authorization: Bearer <ADMIN_TOKEN>".
-// GET  /api/admin/reviews                      -> tous les avis
+// GET  /api/admin/reviews                      -> tous les avis + les visites
 // POST /api/admin/reviews {id, action}         -> action = approve | reject | delete
 import { getStore } from "@netlify/blobs";
-import { isAdmin, listAll, moderate } from "../lib/reviews-core.mjs";
+import { adminGate, listAll, moderate, visitStats } from "../lib/reviews-core.mjs";
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -10,16 +10,14 @@ const json = (body, status = 200) =>
     headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
   });
 
-export default async (req) => {
-  const expected = process.env.ADMIN_TOKEN;
-  if (!expected) return json({ ok: false, message: "ADMIN_TOKEN n'est pas configuré sur Netlify." }, 503);
-
-  const given = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-  if (!isAdmin(given, expected)) return json({ ok: false, message: "Mot de passe incorrect." }, 401);
-
+export default async (req, context) => {
   const store = getStore({ name: "reviews", consistency: "strong" });
 
-  if (req.method === "GET") return json(await listAll(store));
+  const given = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  const gate = await adminGate(store, { given, expected: process.env.ADMIN_TOKEN, ip: context?.ip });
+  if (!gate.ok) return json({ ok: false, message: gate.message }, gate.status);
+
+  if (req.method === "GET") return json({ ...(await listAll(store)), visits: await visitStats(store) });
 
   if (req.method === "POST") {
     let body;
