@@ -1,0 +1,15 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//JPE TSI 2026//FR
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:jpe-tsi-2026@ulco
+DTSTAMP:20261113T120000Z
+DTSTART:20261120T080000Z
+DTEND:20261120T160000Z
+SUMMARY:Journée du Premier Emploi - Master TSI
+LOCATION:Amphithéâtre C001\, Université du Littoral Côte d'Opale\, Calais
+DESCRIPTION:9h00 Accueil\n9h45 Échanges professionnels (amphithéâtre C001)\n12h00 Repas\n13h45 Simulations d'entretiens\n17h00 Fin de la journée
+END:VEVENT
+END:VCALENDAR

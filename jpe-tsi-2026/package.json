@@ -1,0 +1,23 @@
+{
+  "name": "jpe-tsi-2026",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "local": "astro build && node scripts/local-server.mjs",
+    "qr": "node scripts/make-qr.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/instrument-sans": "^5.3.0",
+    "@fontsource-variable/sora": "^5.3.0",
+    "@netlify/blobs": "^11.1.9",
+    "astro": "^7.4.11"
+  },
+  "devDependencies": {
+    "qrcode": "^1.5.4"
+  }
+}

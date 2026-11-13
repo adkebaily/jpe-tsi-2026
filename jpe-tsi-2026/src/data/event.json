@@ -1,0 +1,55 @@
+{
+  "shortName": "JPE TSI 2026",
+  "name": "Journée du Premier Emploi",
+  "master": "Master Traitement du Signal et des Images",
+  "university": "Université du Littoral Côte d'Opale",
+  "city": "Calais",
+  "room": "Amphithéâtre C001",
+  "dateLabel": "Vendredi 20 novembre 2026",
+  "date": "2026-11-20",
+  "start": "09:00",
+  "end": "17:00",
+  "contactEmail": "jpe.tsi.2026@gmail.com",
+  "headline": "Du signal au premier emploi.",
+  "intro": "Les étudiants du Master TSI rencontrent d'anciens diplômés, des recruteurs et des professionnels de l'industrie, pour préparer leur stage, leur alternance ou leur premier emploi.",
+  "domains": "traitement du signal, image et vision, intelligence artificielle, systèmes embarqués et data",
+  "activities": [
+    {
+      "title": "Échanger avec des professionnels",
+      "text": "D'anciens diplômés et des recruteurs racontent leur parcours et répondent aux questions, en amphithéâtre."
+    },
+    {
+      "title": "S'entraîner à l'entretien",
+      "text": "Des simulations d'entretien face à des professionnels, avec un retour tout de suite après."
+    },
+    {
+      "title": "Faire relire son CV et son pitch",
+      "text": "Un retour personnalisé sur le CV et sur la façon de se présenter à l'oral."
+    },
+    {
+      "title": "Construire son réseau",
+      "text": "Des contacts pour un stage, une alternance ou un premier emploi."
+    }
+  ],
+  "schedule": [
+    { "time": "09:00", "title": "Accueil des participants", "detail": "" },
+    { "time": "09:45", "title": "Échanges professionnels avec les étudiants", "detail": "Amphithéâtre C001" },
+    { "time": "12:00", "title": "Repas", "detail": "" },
+    { "time": "13:45", "title": "Simulations d'entretiens", "detail": "" },
+    { "time": "17:00", "title": "Fin de la journée", "detail": "" }
+  ],
+  "team": [
+    {
+      "mission": "Animation",
+      "members": ["Chems Eddine Adel Kebaily", "Koucaila Ahmanache", "Dihia Lacene"]
+    },
+    {
+      "mission": "Vidéo et photo",
+      "members": ["Hanane Bouregba", "Jean Le Coq"]
+    },
+    {
+      "mission": "Organisation générale",
+      "members": ["Melissa Sadallah", "Amirouche Meziani"]
+    }
+  ]
+}

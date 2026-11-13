@@ -1,0 +1,421 @@
+---
+import { Image, getImage } from "astro:assets";
+import Base from "../layouts/Base.astro";
+import event from "../data/event.json";
+import captions from "../data/galerie.json";
+
+type Shot = { default: ImageMetadata };
+const byName = ([a]: [string, Shot], [b]: [string, Shot]) => a.localeCompare(b, "fr", { numeric: true });
+
+// Photo de couverture : la première image déposée dans src/assets/hero/ (facultatif).
+const heroFiles = import.meta.glob<Shot>("../assets/hero/*.{jpg,jpeg,png,webp,avif,JPG,JPEG,PNG,WEBP}", { eager: true });
+const heroPhoto = Object.entries(heroFiles).sort(byName)[0]?.[1].default;
+
+// Galerie : toute image déposée dans src/assets/galerie/, triée par nom de fichier.
+const files = import.meta.glob<Shot>("../assets/galerie/*.{jpg,jpeg,png,webp,avif,JPG,JPEG,PNG,WEBP}", { eager: true });
+const photos = await Promise.all(
+  Object.entries(files)
+    .sort(byName)
+    .map(async ([path, mod]) => {
+      const file = path.split("/").pop() ?? "";
+      const full = await getImage({ src: mod.default, width: Math.min(mod.default.width, 1600), format: "webp" });
+      return {
+        src: mod.default,
+        full: full.src,
+        alt: (captions as Record<string, string>)[file] ?? `Photo de la ${event.name} 2026`,
+      };
+    }),
+);
+
+const hour = (time: string) => time.replace(/^0/, "").replace(":", "h");
+
+const members = event.team.flatMap((group) =>
+  group.members.map((name) => {
+    const parts = name.split(" ");
+    return { name, mission: group.mission, initials: (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() };
+  }),
+);
+
+const links = [
+  { href: "#journee", label: "La journée" },
+  { href: "#programme", label: "Programme" },
+  { href: "#photos", label: "Photos" },
+  { href: "#avis", label: "Avis" },
+  { href: "#equipe", label: "Équipe" },
+];
+const roles = [
+  { value: "pro", label: "Professionnel" },
+  { value: "m2", label: "Master 2" },
+  { value: "m1", label: "Master 1" },
+  { value: "autre", label: "Autre" },
+];
+const ratingWords = ["Décevant", "Moyen", "Bien", "Très bien", "Excellent"];
+const starPath = "M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4l-5.8 3.1 1.1-6.5L2.6 9.4l6.5-.9z";
+const wavePath = "M2 15c3 0 3-8 6-8s3 14 6 14 3-11 6-11 2 4 4 4h2";
+---
+
+<Base title={`${event.name} 2026, Master TSI`}>
+  <div class="intro" id="intro" aria-hidden="true">
+    <div>
+      <div class="intro-frame"><div class="intro-scan"></div></div>
+      <p class="intro-text">Bienvenue à la<br />{event.shortName}</p>
+    </div>
+  </div>
+
+  <nav class="nav" id="nav" aria-label="Navigation principale">
+    <div class="wrap nav-inner">
+      <a class="brand" href="#haut">
+        <svg class="brand-mark" viewBox="0 0 28 28" aria-hidden="true">
+          <path d={wavePath} fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+        {event.shortName}
+      </a>
+      <div class="nav-links">
+        {links.map((link) => <a href={link.href}>{link.label}</a>)}
+      </div>
+      <a class="btn btn-main btn-small" href="#programme" data-show="before">Programme</a>
+      <a class="btn btn-main btn-small" href="#donner-mon-avis" data-show="during after">Donner mon avis</a>
+    </div>
+  </nav>
+
+  <header class="hero" id="haut">
+    {
+      heroPhoto && (
+        <div class="hero-photo">
+          <Image src={heroPhoto} alt="" widths={[640, 1024, 1600]} sizes="100vw" loading="eager" />
+        </div>
+      )
+    }
+
+    <div class="wrap hero-body">
+      <div class="countdown" data-show="before" role="timer" aria-label="Temps restant avant la journée" style="--i:0">
+        <div class="count"><span class="count-num" data-count="d">0</span><span class="count-unit">jours</span></div>
+        <div class="count"><span class="count-num" data-count="h">00</span><span class="count-unit">heures</span></div>
+        <div class="count"><span class="count-num" data-count="m">00</span><span class="count-unit">minutes</span></div>
+        <div class="count"><span class="count-num" data-count="s">00</span><span class="count-unit">secondes</span></div>
+      </div>
+      <p class="status" data-show="during after" style="--i:0"><span class="status-dot"></span><span id="status-text"></span></p>
+
+      <h1 class="hero-title" style="--i:1">{event.name}</h1>
+      <p class="hero-tag" style="--i:2">{event.headline}</p>
+      <p class="hero-meta" style="--i:3">
+        <strong>{event.dateLabel}</strong>
+        {event.master}, {event.city}
+      </p>
+
+      <div class="hero-actions" style="--i:4">
+        <a class="btn btn-main" href="#programme" data-show="before">Voir le programme</a>
+        <a class="btn btn-ghost" href="/jpe-tsi-2026.ics" data-show="before" download>Ajouter à mon agenda</a>
+        <a class="btn btn-main" href="#donner-mon-avis" data-show="during after">Donner mon avis</a>
+        <a class="btn btn-ghost" href="#programme" data-show="during">Voir le programme</a>
+        <a class="btn btn-ghost" href="#avis" data-show="after">Lire les avis</a>
+      </div>
+    </div>
+
+    {!heroPhoto && <canvas class="signal" id="signal" aria-hidden="true" />}
+  </header>
+
+  <main>
+    <section class="section section-alt" id="journee">
+      <div class="wrap">
+        <div class="head" data-reveal>
+          <h2 class="h2">C'est quoi, la JPE ?</h2>
+          <svg class="head-wave" viewBox="0 0 28 28" preserveAspectRatio="none" aria-hidden="true"><path d={wavePath} fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path></svg>
+          <p class="lede">{event.intro}</p>
+        </div>
+
+        <ul class="cards">
+          {
+            event.activities.map((activity, i) => (
+              <li class="card" data-reveal style={`--i:${i}`}>
+                {i === 0 && (
+                  <div class="viz viz-talk" aria-hidden="true">
+                    <div class="bars bars-a">{Array.from({ length: 9 }, (_, n) => <span style={`--n:${n}`} />)}</div>
+                    <div class="bars bars-b">{Array.from({ length: 9 }, (_, n) => <span style={`--n:${n}`} />)}</div>
+                  </div>
+                )}
+                {i === 1 && (
+                  <div class="viz viz-interview" aria-hidden="true">
+                    <span class="seat" />
+                    <span class="ball" />
+                    <span class="seat" />
+                  </div>
+                )}
+                {i === 2 && (
+                  <div class="viz viz-cv" aria-hidden="true">
+                    {Array.from({ length: 4 }, (_, n) => <span class="cv-line" style={`--n:${n + 1}`} />)}
+                    <span class="cv-scan" />
+                  </div>
+                )}
+                {i === 3 && (
+                  <div class="viz viz-net" aria-hidden="true">
+                    <svg viewBox="0 0 320 180">
+                      <line x1="160" y1="90" x2="50" y2="36" pathLength="1" style="--n:1" />
+                      <line x1="160" y1="90" x2="70" y2="150" pathLength="1" style="--n:2" />
+                      <line x1="160" y1="90" x2="262" y2="30" pathLength="1" style="--n:3" />
+                      <line x1="160" y1="90" x2="280" y2="134" pathLength="1" style="--n:4" />
+                      <line x1="262" y1="30" x2="280" y2="134" pathLength="1" style="--n:5" />
+                      <line x1="50" y1="36" x2="70" y2="150" pathLength="1" style="--n:6" />
+                      <circle cx="50" cy="36" r="18" style="--n:2" />
+                      <circle cx="70" cy="150" r="14" style="--n:3" />
+                      <circle cx="262" cy="30" r="16" style="--n:4" />
+                      <circle cx="280" cy="134" r="20" style="--n:5" />
+                      <circle class="me" cx="160" cy="90" r="26" style="--n:0" />
+                    </svg>
+                  </div>
+                )}
+                <h3 class="card-title">{activity.title}</h3>
+                <p class="card-text">{activity.text}</p>
+              </li>
+            ))
+          }
+        </ul>
+
+        <p class="domains note" data-reveal>Les métiers représentés : {event.domains}.</p>
+      </div>
+    </section>
+
+    <section class="section" id="programme">
+      <div class="wrap">
+        <div class="head" data-reveal>
+          <h2 class="h2">Le programme</h2>
+          <svg class="head-wave" viewBox="0 0 28 28" preserveAspectRatio="none" aria-hidden="true"><path d={wavePath} fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path></svg>
+          <p class="lede">{event.dateLabel}, de {hour(event.start)} à {hour(event.end)}.</p>
+        </div>
+
+        <ol class="slots">
+          {
+            event.schedule.map((slot, i) => (
+              <li class="slot" data-time={slot.time} data-reveal style={`--i:${i}`}>
+                <time class="slot-time" datetime={`${event.date}T${slot.time}`}>{hour(slot.time)}</time>
+                <div>
+                  <p class="slot-title">{slot.title}</p>
+                  {slot.detail && <p class="slot-detail">{slot.detail}</p>}
+                  <span class="slot-now">En ce moment</span>
+                </div>
+              </li>
+            ))
+          }
+        </ol>
+
+        <p class="center" data-show="before">
+          <a class="btn btn-ghost" href="/jpe-tsi-2026.ics" download>Ajouter à mon agenda</a>
+        </p>
+      </div>
+    </section>
+
+    <section class="section section-alt" id="photos">
+      <div class="wrap">
+        <div class="head" data-reveal>
+          <h2 class="h2">La journée en images</h2>
+          <svg class="head-wave" viewBox="0 0 28 28" preserveAspectRatio="none" aria-hidden="true"><path d={wavePath} fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path></svg>
+        </div>
+      </div>
+
+      {
+        photos.length > 0 ? (
+          <>
+            <div class="rail" id="gallery">
+              {photos.map((photo, index) => (
+                <button class="shot" type="button" data-index={index} data-full={photo.full} aria-label={`Agrandir : ${photo.alt}`}>
+                  <Image src={photo.src} alt={photo.alt} widths={[480, 800, 1100]} sizes="(min-width: 62rem) 34rem, 80vw" loading="lazy" />
+                </button>
+              ))}
+            </div>
+            <div class="rail-nav" data-rail-nav="gallery">
+              <button class="rail-btn" type="button" data-dir="-1" aria-label="Photos précédentes"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12 4l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
+              <button class="rail-btn" type="button" data-dir="1" aria-label="Photos suivantes"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 4l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
+            </div>
+          </>
+        ) : (
+          <div class="wrap">
+            <div class="mosaic" data-reveal>
+              <canvas id="mosaic" role="img" aria-label="20.11 écrit en gros pixels"></canvas>
+              <p class="lede">Les photos seront publiées ici après la journée.</p>
+            </div>
+          </div>
+        )
+      }
+    </section>
+
+    <section class="section" id="avis">
+      <div class="wrap">
+        <div class="head" data-reveal>
+          <h2 class="h2">Les avis des participants</h2>
+          <svg class="head-wave" viewBox="0 0 28 28" preserveAspectRatio="none" aria-hidden="true"><path d={wavePath} fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path></svg>
+        </div>
+
+        <div class="score" id="score" hidden>
+          <p class="score-value"><span id="score-value">0</span><small> / 5</small></p>
+          <span class="stars-row" id="score-stars" aria-hidden="true"></span>
+          <p class="note" id="score-count"></p>
+        </div>
+
+        <p class="demo-flag" id="demo-flag" hidden>
+          Avis d'exemple, affichés uniquement avec <code>?demo=1</code> pour tester la mise en page. Ils n'existent pas sur la vraie page.
+        </p>
+
+        <div class="chips" id="chips" role="group" aria-label="Filtrer les avis" hidden></div>
+      </div>
+
+      <ul class="rail" id="reviews" aria-live="polite"></ul>
+      <div class="rail-nav" id="reviews-nav" data-rail-nav="reviews" hidden>
+        <button class="rail-btn" type="button" data-dir="-1" aria-label="Avis précédents"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12 4l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
+        <button class="rail-btn" type="button" data-dir="1" aria-label="Avis suivants"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 4l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
+      </div>
+
+      <div class="wrap">
+        <p class="reviews-state" id="reviews-state">Chargement des avis…</p>
+
+        <div class="form-panel" id="donner-mon-avis">
+          <h3 class="form-title">Donner mon avis</h3>
+
+          <p class="form-closed" data-show="before">
+            Le formulaire ouvre le 20 novembre à {hour(event.start)}, dès le début de la journée.
+          </p>
+
+          <div data-show="during after">
+            <p class="form-intro" id="form-intro">Une note, un commentaire. C'est tout.</p>
+
+            <form class="form" id="review-form" novalidate>
+              <fieldset class="field rating">
+                <legend class="sr-only">Votre note sur 5</legend>
+                <div class="stars">
+                  {
+                    ratingWords.map((word, i) => (
+                      <>
+                        <input class="star-input sr-only" type="radio" name="rating" id={`rating-${i + 1}`} value={i + 1} />
+                        <label class="star" for={`rating-${i + 1}`}>
+                          <span class="sr-only">{i + 1} sur 5, {word}</span>
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d={starPath} /></svg>
+                        </label>
+                      </>
+                    ))
+                  }
+                </div>
+                <p class="rating-say" id="rating-say" aria-hidden="true">? / 5</p>
+                <p class="field-error" data-error="rating"></p>
+              </fieldset>
+
+              <div class="field">
+                <label class="field-label" for="f-comment">Votre commentaire</label>
+                <textarea class="input" id="f-comment" name="comment" maxlength="600" required placeholder="Ce que vous retenez de la journée, ce qu'on peut améliorer."></textarea>
+                <p class="field-count"><span id="comment-count">0</span> / 600</p>
+                <p class="field-error" data-error="comment"></p>
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="f-name">Votre nom <span class="field-hint">(facultatif)</span></label>
+                <input class="input" id="f-name" name="name" type="text" autocomplete="name" maxlength="60" enterkeyhint="send" />
+              </div>
+
+              <fieldset class="field">
+                <legend class="field-label">Vous êtes <span class="field-hint">(facultatif)</span></legend>
+                <div class="roles">
+                  {
+                    roles.map((role) => (
+                      <>
+                        <input class="role-input sr-only" type="radio" name="role" id={`role-${role.value}`} value={role.value} />
+                        <label class="role" for={`role-${role.value}`}>{role.label}</label>
+                      </>
+                    ))
+                  }
+                </div>
+              </fieldset>
+
+              <div class="trap" aria-hidden="true">
+                <label for="f-website">Ne pas remplir</label>
+                <input id="f-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+              </div>
+
+              <p class="form-message" id="form-message" role="alert"></p>
+
+              <button class="btn btn-main form-submit" type="submit">Envoyer mon avis</button>
+              <p class="form-note">Votre avis est publié sur cette page après validation par l'équipe.</p>
+            </form>
+
+            <div class="form-done" id="form-done" hidden tabindex="-1">
+              <svg class="done-mark" viewBox="0 0 56 56" aria-hidden="true">
+                <circle cx="28" cy="28" r="28"></circle>
+                <path d="M17 29l8 8 15-17"></path>
+              </svg>
+              <p class="done-title">Avis envoyé, merci</p>
+              <p class="note">Il apparaîtra ici dès que l'équipe l'aura validé.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-alt" id="equipe">
+      <div class="wrap">
+        <div class="head" data-reveal>
+          <h2 class="h2">L'équipe d'organisation</h2>
+          <svg class="head-wave" viewBox="0 0 28 28" preserveAspectRatio="none" aria-hidden="true"><path d={wavePath} fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path></svg>
+          <p class="lede">Les {members.length} étudiants du Master TSI qui préparent et animent la journée.</p>
+        </div>
+
+        <ul class="team">
+          {
+            members.map((member, i) => (
+              <li class="member" data-reveal style={`--i:${i % 4}`}>
+                <span class="member-mono" aria-hidden="true">{member.initials}</span>
+                <p class="member-name">{member.name}</p>
+                <p class="member-mission">{member.mission}</p>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </section>
+
+    <section class="section" id="partager">
+      <div class="wrap">
+        <div class="share" data-reveal>
+          <div class="share-qr" id="share-qr" role="img" aria-label="QR code de cette page"></div>
+          <div class="share-body">
+            <h2 class="h2">Partagez la page</h2>
+            <p class="lede">Faites scanner ce QR code, ou envoyez le lien.</p>
+            <p class="share-url" id="share-url"></p>
+            <div class="share-actions">
+              <button class="btn btn-main" type="button" data-copy>Copier le lien</button>
+              <button class="btn btn-ghost" type="button" data-share hidden>Partager</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <a class="brand" href="#haut">
+        <svg class="brand-mark" viewBox="0 0 28 28" aria-hidden="true">
+          <path d={wavePath} fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+        {event.shortName}
+      </a>
+      <div class="footer-links">
+        {links.map((link) => <a href={link.href}>{link.label}</a>)}
+      </div>
+      <p>{event.master}, {event.university}, {event.city}</p>
+      <p><a class="footer-link" href={`mailto:${event.contactEmail}`}>{event.contactEmail}</a></p>
+    </div>
+  </footer>
+
+  <dialog class="lightbox" id="lightbox" aria-label="Photo agrandie">
+    <div class="lightbox-stage" id="lightbox-stage">
+      <img class="lightbox-img" id="lightbox-img" alt="" />
+    </div>
+    <button class="lightbox-btn lightbox-close" type="button" data-lb="close" aria-label="Fermer">×</button>
+    <button class="lightbox-btn lightbox-prev" type="button" data-lb="prev" aria-label="Photo précédente">‹</button>
+    <button class="lightbox-btn lightbox-next" type="button" data-lb="next" aria-label="Photo suivante">›</button>
+    <p class="lightbox-count" id="lightbox-count"></p>
+  </dialog>
+
+  <p class="toast" id="toast" role="status"></p>
+
+  <script>
+    import "../scripts/main.ts";
+  </script>
+</Base>

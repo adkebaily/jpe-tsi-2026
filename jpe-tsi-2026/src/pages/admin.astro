@@ -1,0 +1,244 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Validation des avis, JPE TSI 2026" description="Page réservée à l'équipe d'organisation.">
+  <main class="admin wrap">
+    <h1 class="title">Validation des avis</h1>
+
+    <form class="admin-login" id="login">
+      <label class="field-label" for="token">Mot de passe de l'équipe</label>
+      <div class="admin-row">
+        <input class="input admin-input" id="token" type="password" autocomplete="current-password" required />
+        <button class="btn btn-main" type="submit">Ouvrir</button>
+      </div>
+      <p class="admin-error" id="login-error" role="alert"></p>
+    </form>
+
+    <section id="panel" hidden>
+      <div class="admin-bar">
+        <div class="chips" id="tabs" role="group" aria-label="Filtrer par statut"></div>
+        <button class="btn btn-ghost btn-small" type="button" id="logout">Fermer la session</button>
+      </div>
+      <p class="note" id="summary"></p>
+      <ul class="admin-list" id="list"></ul>
+    </section>
+  </main>
+
+  <p class="toast" id="toast" role="status"></p>
+</Base>
+
+<style>
+  .admin {
+    padding-block: 2.5rem 5rem;
+  }
+  .admin-login {
+    display: grid;
+    gap: 0.5rem;
+    max-width: 28rem;
+    margin-top: 2rem;
+  }
+  .admin-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .admin-error {
+    color: #ffb3a3;
+    font-weight: 500;
+  }
+  .admin-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .admin-list {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  .admin-list :global(.admin-item) {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1.25rem;
+    border-radius: var(--radius);
+    background: var(--white);
+    color: var(--ink);
+    border-left: 4px solid var(--line);
+  }
+  .admin-list :global(.admin-item[data-status="pending"]) {
+    border-left-color: var(--coral);
+  }
+  .admin-list :global(.admin-item[data-status="approved"]) {
+    border-left-color: var(--green);
+  }
+  .admin-list :global(.admin-meta) {
+    color: var(--muted);
+    font-size: 0.9375rem;
+  }
+  .admin-list :global(.admin-text) {
+    overflow-wrap: anywhere;
+  }
+  .admin-list :global(.admin-actions) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .admin-list :global(.admin-actions .btn-ghost) {
+    border-color: var(--line);
+  }
+  .admin :global(.chips) {
+    justify-content: flex-start;
+    margin-bottom: 0;
+  }
+</style>
+
+<script>
+  import { toast } from "../scripts/ui";
+
+  type Status = "pending" | "approved" | "rejected";
+  interface Review {
+    id: string; name: string; role: string; comment: string;
+    rating: number; status: Status; createdAt: string;
+  }
+
+  const STATUS_LABEL: Record<Status, string> = { pending: "À valider", approved: "Publiés", rejected: "Refusés" };
+  const ROLE_LABEL: Record<string, string> = { pro: "Professionnel", m2: "Master 2", m1: "Master 1", autre: "Autre" };
+  const KEY = "jpe-admin-token";
+
+  const login = document.getElementById("login") as HTMLFormElement;
+  const loginError = document.getElementById("login-error")!;
+  const input = document.getElementById("token") as HTMLInputElement;
+  const panel = document.getElementById("panel")!;
+  const tabs = document.getElementById("tabs")!;
+  const list = document.getElementById("list")!;
+  const summary = document.getElementById("summary")!;
+
+  let token = "";
+  let reviews: Review[] = [];
+  let tab: Status = "pending";
+
+  try {
+    token = sessionStorage.getItem(KEY) ?? "";
+  } catch {
+    /* stockage indisponible : le mot de passe sera redemandé */
+  }
+
+  const api = async (init?: RequestInit) => {
+    const response = await fetch("/api/admin/reviews", {
+      ...init,
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.message ?? `Erreur ${response.status}`);
+    return body;
+  };
+
+  const node = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text = "") => {
+    const n = document.createElement(tag);
+    n.className = className;
+    n.textContent = text;
+    return n;
+  };
+
+  function render() {
+    const counts = { pending: 0, approved: 0, rejected: 0 };
+    reviews.forEach((r) => counts[r.status]++);
+
+    tabs.replaceChildren(
+      ...(Object.keys(STATUS_LABEL) as Status[]).map((status) => {
+        const chip = node("button", "chip", `${STATUS_LABEL[status]} (${counts[status]})`);
+        chip.type = "button";
+        chip.setAttribute("aria-pressed", String(status === tab));
+        chip.addEventListener("click", () => {
+          tab = status;
+          render();
+        });
+        return chip;
+      }),
+    );
+
+    const shown = reviews.filter((r) => r.status === tab);
+    summary.textContent = shown.length ? "" : "Rien dans cette liste.";
+
+    list.replaceChildren(
+      ...shown.map((review) => {
+        const item = node("li", "admin-item");
+        item.dataset.status = review.status;
+
+        const when = new Date(review.createdAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+        const who = [review.name || "Anonyme", ROLE_LABEL[review.role]].filter(Boolean).join(", ");
+        const actions = node("div", "admin-actions");
+        const button = (label: string, action: string, main = false) => {
+          const b = node("button", `btn btn-small ${main ? "btn-main" : "btn-ghost"}`, label);
+          b.type = "button";
+          b.addEventListener("click", () => act(review, action));
+          return b;
+        };
+        if (review.status !== "approved") actions.append(button("Publier", "approve", true));
+        if (review.status !== "rejected") actions.append(button(review.status === "approved" ? "Retirer de la page" : "Refuser", "reject"));
+        actions.append(button("Supprimer", "delete"));
+
+        item.append(
+          node("p", "review-who", who),
+          node("p", "admin-meta", `${when}, note ${review.rating}/5`),
+          node("p", "admin-text", review.comment),
+          actions,
+        );
+        return item;
+      }),
+    );
+  }
+
+  async function act(review: Review, action: string) {
+    if (action === "delete" && !confirm(`Supprimer définitivement l'avis de ${review.name || "Anonyme"} ?`)) return;
+    try {
+      await api({ method: "POST", body: JSON.stringify({ id: review.id, action }) });
+      toast(action === "approve" ? "Avis publié" : action === "reject" ? "Avis retiré" : "Avis supprimé");
+      await load();
+    } catch (error) {
+      toast((error as Error).message);
+    }
+  }
+
+  async function load() {
+    reviews = (await api()).reviews;
+    render();
+  }
+
+  async function open() {
+    loginError.textContent = "";
+    try {
+      await load();
+      try {
+        sessionStorage.setItem(KEY, token);
+      } catch {
+        /* sans stockage, la session ne survit pas au rechargement */
+      }
+      login.hidden = true;
+      panel.hidden = false;
+    } catch (error) {
+      token = "";
+      loginError.textContent = (error as Error).message;
+    }
+  }
+
+  login.addEventListener("submit", (e) => {
+    e.preventDefault();
+    token = input.value;
+    open();
+  });
+
+  document.getElementById("logout")!.addEventListener("click", () => {
+    try {
+      sessionStorage.removeItem(KEY);
+    } catch {
+      /* rien à effacer */
+    }
+    location.reload();
+  });
+
+  if (token) open();
+</script>
