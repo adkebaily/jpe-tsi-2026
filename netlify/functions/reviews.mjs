@@ -1,4 +1,4 @@
-// GET  /api/reviews  -> avis approuvés + moyennes
+// GET  /api/reviews  -> avis approuvés + moyenne
 // POST /api/reviews  -> envoie un avis (mis en attente de validation)
 import { getStore } from "@netlify/blobs";
 import { listPublic, submit } from "../lib/reviews-core.mjs";
@@ -17,6 +17,10 @@ export default async (req, context) => {
   }
 
   if (req.method === "POST") {
+    // Seul le JSON est accepté : un formulaire posté depuis un autre site ne peut pas l'envoyer.
+    if (!(req.headers.get("content-type") || "").includes("application/json"))
+      return json({ ok: false, message: "Format non accepté." }, 415);
+
     let body;
     try {
       const raw = await req.text();
@@ -25,7 +29,7 @@ export default async (req, context) => {
     } catch {
       return json({ ok: false, message: "Requête illisible." }, 400);
     }
-    const result = await submit(store, body, { ip: context.ip });
+    const result = await submit(store, body, { ip: context?.ip });
     return json(result.body, result.status);
   }
 

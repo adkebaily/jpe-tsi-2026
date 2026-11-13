@@ -4,9 +4,10 @@ import { initSchedule } from "./schedule";
 import { initGallery } from "./gallery";
 import { initMosaic } from "./mosaic";
 import { initReviews } from "./reviews";
-import { initIntro, initNav, initRails, initShare } from "./ui";
+import { initIntro, initNav, initRails, initShare, initVisit } from "./ui";
 
 initIntro();
+initVisit();
 initSchedule();
 initReveals();
 const canvas = document.getElementById("signal");

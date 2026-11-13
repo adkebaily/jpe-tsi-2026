@@ -60,6 +60,31 @@ export function initRails() {
   });
 }
 
+/**
+ * Compte la visite, une fois par session, avec son canal d'arrivée (?src=qr, ?src=linkedin…).
+ * Aucun cookie, aucun identifiant : le serveur ne garde qu'un compteur par jour et par canal.
+ */
+export function initVisit() {
+  const params = new URLSearchParams(location.search);
+  // Les adresses de test (?now=, ?demo=) ne comptent pas.
+  if (params.has("now") || params.has("demo")) return;
+  try {
+    if (sessionStorage.getItem("jpe-visit") === "1") return;
+    sessionStorage.setItem("jpe-visit", "1");
+  } catch {
+    /* sans stockage, la visite est simplement comptée à chaque chargement */
+  }
+  const src = (params.get("src") ?? "direct").toLowerCase().slice(0, 20);
+  fetch("/api/hit", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ src }),
+    keepalive: true,
+  }).catch(() => {
+    /* le compteur n'est jamais bloquant */
+  });
+}
+
 /** Bloc "Partagez la page" : QR code de l'adresse, copie du lien, partage natif. */
 export function initShare() {
   // L'adresse partagée ne garde ni ?src=qr ni les paramètres de test.

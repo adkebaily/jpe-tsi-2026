@@ -1,0 +1,77 @@
+---
+import "@fontsource-variable/sora/wght.css";
+import "@fontsource-variable/instrument-sans/wght.css";
+import "../styles/global.css";
+import event from "../data/event.json";
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Vrai pour les pages qui ne doivent pas apparaître dans les moteurs de recherche. */
+  noindex?: boolean;
+}
+
+const { title, description = event.intro, noindex = false } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const preview = new URL("/og.png", Astro.site);
+
+// Données structurées : permet à Google d'afficher la date et le lieu de l'événement.
+const eventData = {
+  "@context": "https://schema.org",
+  "@type": "EducationEvent",
+  name: `${event.name} du ${event.master}`,
+  description: event.intro,
+  startDate: `${event.date}T${event.start}:00+01:00`,
+  endDate: `${event.date}T${event.end}:00+01:00`,
+  eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+  eventStatus: "https://schema.org/EventScheduled",
+  inLanguage: "fr",
+  image: preview.href,
+  url: canonical.href,
+  location: {
+    "@type": "Place",
+    name: event.university,
+    address: { "@type": "PostalAddress", addressLocality: event.city, addressCountry: "FR" },
+  },
+  organizer: { "@type": "Organization", name: `${event.master}, ${event.university}` },
+};
+---
+
+<!doctype html>
+<html lang="fr" data-date={event.date} data-start={event.start} data-end={event.end}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0B1F3A" />
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+
+    {
+      !noindex && (
+        <>
+          <link rel="canonical" href={canonical.href} />
+          <meta property="og:type" content="website" />
+          <meta property="og:site_name" content={event.shortName} />
+          <meta property="og:locale" content="fr_FR" />
+          <meta property="og:url" content={canonical.href} />
+          <meta property="og:title" content={title} />
+          <meta property="og:description" content={description} />
+          <meta property="og:image" content={preview.href} />
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
+          <meta property="og:image:alt" content={`${event.name}, ${event.dateLabel}, ${event.city}`} />
+          <meta name="twitter:card" content="summary_large_image" />
+          <script type="application/ld+json" is:inline set:html={JSON.stringify(eventData).replace(/</g, "\\u003c")} />
+        </>
+      )
+    }
+
+    <!-- Petit script chargé avant le rendu : voir public/boot.js -->
+    <script is:inline src="/boot.js"></script>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
